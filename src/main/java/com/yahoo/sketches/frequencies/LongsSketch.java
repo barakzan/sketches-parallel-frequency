@@ -145,12 +145,20 @@ public class LongsSketch {
    * Tracks the total of decremented counts.
    */
   private long offset;
+  
+  protected long getOffset() {
+	  return offset;
+  }
 
   /**
    * The sum of all frequencies of the stream so far.
    */
   private long streamWeight = 0;
 
+  protected long getStreamWeight() {
+	  return streamWeight;
+  }
+  
   /**
    * The maximum number of samples used to compute approximate median of counters when doing
    * decrement
@@ -162,6 +170,10 @@ public class LongsSketch {
    */
   private ReversePurgeLongHashMap hashMap;
 
+  protected ReversePurgeLongHashMap getHashMap() {
+	  return hashMap;
+  }
+  
   /**
    * Construct this sketch with the parameter maxMapSize and the default initialMapSize (8).
    *

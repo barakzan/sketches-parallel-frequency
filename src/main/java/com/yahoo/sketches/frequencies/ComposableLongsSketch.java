@@ -262,6 +262,15 @@ public class ComposableLongsSketch {
 	  }
   }
   
+  private void setHashMap(ReversePurgeLongHashMap toSet, boolean SetToReadCell) {
+	  if(SetToReadCell) {
+		  hashMap[CellToRead.get()] = toSet;
+	  }
+	  else {
+		  hashMap[CellToRead.get() == 0 ? 1 : 0] = toSet;
+	  }
+  }
+  
   /**
    * Construct this sketch with the parameter maxMapSize and the default initialMapSize (8).
    *
@@ -583,12 +592,12 @@ public class ComposableLongsSketch {
   }
 
   /**
-   * This function merges the other sketch into this one.
-   * The other sketch may be of a different size.
+   * This function merges the other Composable sketch into this one.
+   * The other Composable sketch may be of a different size.
    *
-   * @param other sketch of this class
-   * @return a sketch whose estimates are within the guarantees of the
-   * largest error tolerance of the two merged sketches.
+   * @param other Composable sketch of this class
+   * @return a Composable sketch whose estimates are within the guarantees of the
+   * largest error tolerance of the two merged Composable sketches.
    */
   public ComposableLongsSketch merge(final ComposableLongsSketch other) {
     if (other == null) { return this; }
@@ -605,6 +614,44 @@ public class ComposableLongsSketch {
     return this;
   }
 
+  /**
+   * This function merges the other sketch into this Composable sketch.
+   * The other sketch may be of a different size.
+   *
+   * @param other sketch of this class
+   * @return a Composable sketch whose estimates are within the guarantees of the
+   * largest error tolerance of the two merged sketches.
+   */
+  public ComposableLongsSketch merge(final LongsSketch other) {
+    if (other == null) { return this; }
+    if (other.isEmpty()) { return this; }
+    
+    // TODO: check this.size >= 2 * other.size, and fix update()
+
+    final long streamWt = getStreamWeight() + other.getStreamWeight(); //capture before merge
+
+    final ReversePurgeLongHashMap.Iterator iter = other.getHashMap().iterator();
+    while (iter.next()) { //this may add to offset during rebuilds
+      this.update(iter.getKey(), iter.getValue());
+    }
+    setOffset(getOffset(false) + other.getOffset(), false);
+    setStreamWeight(streamWt, false); //corrected streamWeight
+    
+    switchCellsAndCopyProperties();
+    return this;
+  }
+  
+  /**
+   * 
+   */
+  private void switchCellsAndCopyProperties() {
+	  CellToRead.set(CellToRead.get() == 0 ? 1 : 0); //flip cells
+	  setCurMapCap(getCurMapCap(),false);
+	  setOffset(getOffset(), false);
+	  setStreamWeight(getStreamWeight(), false);
+	  setHashMap(ReversePurgeLongHashMap.getInstance(getHashMap().serializeToString()),false);
+  }
+  
   /**
    * Resets this sketch to a virgin state.
    */
@@ -724,7 +771,7 @@ public class ComposableLongsSketch {
    * Update this sketch with an item and a frequency count of one.
    * @param item for which the frequency should be increased.
    */
-  public void update(final long item) {
+  private void update(final long item) {
     update(item, 1);
   }
 
@@ -735,7 +782,7 @@ public class ComposableLongsSketch {
    * @param count the amount by which the frequency of the item should be increased.
    * An count of zero is a no-op, and a negative count will throw an exception.
    */
-  public void update(final long item, final long count) {
+  private void update(final long item, final long count) {
     if (count == 0) { return; }
     if (count < 0) {
       throw new SketchesArgumentException("Count may not be negative");
