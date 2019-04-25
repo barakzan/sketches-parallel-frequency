@@ -133,41 +133,6 @@ public static void main(String[] args) {
     println("PRINTING: " + this.getClass().getName());
   }
 
-  //Restricted methods
-
-  public void printSketch(int size, long[] freqArr) {
-    LongsSketch fls = new LongsSketch(size);
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i<freqArr.length; i++) {
-      fls.update(i+1, freqArr[i]);
-    }
-    sb.append("Sketch Size: "+size).append(LS);
-    String s = fls.toString();
-    sb.append(s);
-    println(sb.toString());
-    printRows(fls, ErrorType.NO_FALSE_NEGATIVES);
-    println("");
-    printRows(fls, ErrorType.NO_FALSE_POSITIVES);
-    println("");
-  }
-
-  private static void printRows(LongsSketch fls, ErrorType eType) {
-    Row[] rows = fls.getFrequentItems(eType);
-    String s1 = eType.toString();
-    println(s1);
-    String hdr = Row.getRowHeader();
-    println(hdr);
-    for (int i=0; i<rows.length; i++) {
-      Row row = rows[i];
-      String s2 = row.toString();
-      println(s2);
-    }
-    if (rows.length > 0) { //check equals null case
-      Row nullRow = null;
-      assertFalse(rows[0].equals(nullRow));
-    }
-  }
-
   /**
    * @param s value to print
    */
