@@ -36,6 +36,7 @@ import com.yahoo.memory.WritableMemory;
 import com.yahoo.sketches.Family;
 import com.yahoo.sketches.SketchesArgumentException;
 import com.yahoo.sketches.SketchesStateException;
+import com.yahoo.sketches.frequencies.LongsSketch.Row;
 
 /**
  * <p>This sketch is useful for tracking approximate frequencies of <i>long</i> items with optional
@@ -128,13 +129,30 @@ import com.yahoo.sketches.SketchesStateException;
  * @author Lee Rhodes
  */
 public class ComposableLongsSketch {
-
+	
   private static final int STR_PREAMBLE_TOKENS = 6;
   
   /**
    * an atomic integer that represents the cell which getEstimate will read from  
    */
+  public enum Cell {
+	  ReadCell,
+	  WriteCell;
+  }
+  
   private AtomicInteger CellToRead = new AtomicInteger(0);
+  
+  private int GetReadCellIndex() {
+	  return CellToRead.get();
+  }
+  
+  private int GetWriteCellIndex() {
+	  return CellToRead.get() == 0 ? 1 : 0;
+  }
+  
+  private void FlipCells() {
+	  CellToRead.set(CellToRead.get() == 0 ? 1 : 0);
+  }
   
   /**
    * Log2 Maximum length of the arrays internal to the hash map supported by the data
@@ -145,50 +163,50 @@ public class ComposableLongsSketch {
   /**
    * The current number of counters supported by the hash map.
    */
-  private int[] curMapCap; //the threshold to purge
+  private int[] curMapCap = new int[2]; //the threshold to purge
   
   private int getCurMapCap() {
-	  return curMapCap[CellToRead.get()];
+	  return curMapCap[GetReadCellIndex()];
   }
   
-  private int getCurMapCap(boolean getFromReadCell) {
-	  if(!getFromReadCell) {
-		  return curMapCap[CellToRead.get() == 0 ? 1 : 0];
+  private int getCurMapCap(Cell cellToRead) {
+	  if(cellToRead == Cell.ReadCell) {
+		  return curMapCap[GetReadCellIndex()];
 	  }
-	  else {
-		  return getCurMapCap();
+	  else { // Cell.WriteCell
+		  return curMapCap[GetWriteCellIndex()];
 	  }
   }
   
-  private void setCurMapCap(int toSet) {
-	  curMapCap[0] = toSet;
-	  curMapCap[1] = toSet;
+  private void setCurMapCap(int value) {
+	  curMapCap[0] = value;
+	  curMapCap[1] = value;
   }
 
-  private void setCurMapCap(int toSet, boolean SetToReadCell) {
-	  if(SetToReadCell) {
-		  curMapCap[CellToRead.get()] = toSet;
+  private void setCurMapCap(int value, Cell cellToSet) {
+	  if(cellToSet == Cell.ReadCell) {
+		  curMapCap[GetReadCellIndex()] = value;
 	  }
-	  else {
-		  curMapCap[CellToRead.get() == 0 ? 1 : 0] = toSet;
+	  else { // Cell.WriteCell
+		  curMapCap[GetWriteCellIndex()] = value;
 	  }
   }
   
   /**
    * Tracks the total of decremented counts.
    */
-  private long[] offset;
+  private long[] offset = new long[2];
 
   private long getOffset() {
-	  return offset[CellToRead.get()];
+	  return offset[GetReadCellIndex()];
   }
   
-  private long getOffset(boolean getFromReadCell) {
-	  if(!getFromReadCell) {
-		  return offset[CellToRead.get() == 0 ? 1 : 0];
+  private long getOffset(Cell cellToRead) {
+	  if(cellToRead == Cell.ReadCell) {
+		  return offset[GetReadCellIndex()];
 	  }
 	  else {
-		  return getOffset();
+		  return offset[GetWriteCellIndex()];
 	  }
   }
   
@@ -197,12 +215,12 @@ public class ComposableLongsSketch {
 	  offset[1] = toSet;
   }
   
-  private void setOffset(long toSet, boolean SetToReadCell) {
-	  if(SetToReadCell) {
-		  offset[CellToRead.get()] = toSet;
+  private void setOffset(long value, Cell cellToSet) {
+	  if(cellToSet == Cell.ReadCell) {
+		  offset[GetReadCellIndex()] = value;
 	  }
 	  else {
-		  offset[CellToRead.get() == 0 ? 1 : 0] = toSet;
+		  offset[GetWriteCellIndex()] = value;
 	  }
   }
   
@@ -212,29 +230,29 @@ public class ComposableLongsSketch {
   private long[] streamWeight = {0,0};
 
   private long getStreamWeight() {
-	  return streamWeight[CellToRead.get()];
+	  return streamWeight[GetReadCellIndex()];
   }
   
-  private long getStreamWeight(boolean getFromReadCell) {
-	  if(!getFromReadCell) {
-		  return streamWeight[CellToRead.get() == 0 ? 1 : 0];
+  private long getStreamWeight(Cell cellToRead) {
+	  if(cellToRead == Cell.ReadCell) {
+		  return streamWeight[GetReadCellIndex()];
 	  }
 	  else {
-		  return getStreamWeight();
+		  return streamWeight[GetWriteCellIndex()];
 	  }
   }
   
-  private void setStreamWeight(long toSet) {
-	  streamWeight[0] = toSet;
-	  streamWeight[1] = toSet;
+  private void setStreamWeight(long value) {
+	  streamWeight[0] = value;
+	  streamWeight[1] = value;
   }
   
-  private void setStreamWeight(long toSet, boolean SetToReadCell) {
-	  if(SetToReadCell) {
-		  streamWeight[CellToRead.get()] = toSet;
+  private void setStreamWeight(long value, Cell cellToSet) {
+	  if(cellToSet == Cell.ReadCell) {
+		  streamWeight[GetReadCellIndex()] = value;
 	  }
 	  else {
-		  streamWeight[CellToRead.get() == 0 ? 1 : 0] = toSet;
+		  streamWeight[GetWriteCellIndex()] = value;
 	  }
   }
   
@@ -247,27 +265,27 @@ public class ComposableLongsSketch {
   /**
    * Hash map mapping stored items to approximate counts
    */
-  private ReversePurgeLongHashMap hashMap[];
+  private ReversePurgeLongHashMap hashMap[] = new ReversePurgeLongHashMap[2];
 
   private ReversePurgeLongHashMap getHashMap() {
-	  return hashMap[CellToRead.get()];
+	  return hashMap[GetReadCellIndex()];
   }
   
-  private ReversePurgeLongHashMap getHashMap(boolean getFromReadCell) {
-	  if(!getFromReadCell) {
-		  return hashMap[CellToRead.get() == 0 ? 1 : 0];
+  private ReversePurgeLongHashMap getHashMap(Cell cellToRead) {
+	  if(cellToRead == Cell.ReadCell) {
+		  return hashMap[GetReadCellIndex()];
 	  }
 	  else {
-		  return getHashMap();
+		  return hashMap[GetWriteCellIndex()];
 	  }
   }
   
-  private void setHashMap(ReversePurgeLongHashMap toSet, boolean SetToReadCell) {
-	  if(SetToReadCell) {
-		  hashMap[CellToRead.get()] = toSet;
+  private void setHashMap(ReversePurgeLongHashMap mapToSet, Cell cellToSet) {
+	  if(cellToSet == Cell.ReadCell) {
+		  hashMap[GetReadCellIndex()] = mapToSet;
 	  }
 	  else {
-		  hashMap[CellToRead.get() == 0 ? 1 : 0] = toSet;
+		  hashMap[GetWriteCellIndex()] = mapToSet;
 	  }
   }
   
@@ -419,8 +437,8 @@ public class ComposableLongsSketch {
     final ComposableLongsSketch sketch = new ComposableLongsSketch(lgMax, lgCur);
     sketch.setStreamWeight(streamWt);
     sketch.setOffset(offset);
-    sketch.hashMap[0] = deserializeFromStringArray(tokens);
-    sketch.hashMap[1] = deserializeFromStringArray(tokens);
+    sketch.hashMap[0] = LongsSketch.deserializeFromStringArray(tokens);
+    sketch.hashMap[1] = LongsSketch.deserializeFromStringArray(tokens);
     return sketch;
   }
 
@@ -509,8 +527,8 @@ public class ComposableLongsSketch {
    * desired.
    * @return an array of frequent items
    */
-  public Row[] getFrequentItems(final long threshold, final ErrorType errorType) {
-    return sortItems(threshold > getMaximumError() ? threshold : getMaximumError(), errorType);
+  public LongsSketch.Row[] getFrequentItems(final long threshold, final ErrorType errorType) {
+    return getSortItems(threshold > getMaximumError() ? threshold : getMaximumError(), errorType);
   }
 
   /**
@@ -522,10 +540,20 @@ public class ComposableLongsSketch {
    * desired.
    * @return an array of frequent items
    */
-  public Row[] getFrequentItems(final ErrorType errorType) {
-    return sortItems(getMaximumError(), errorType);
+  public LongsSketch.Row[] getFrequentItems(final ErrorType errorType) {
+    return getSortItems(getMaximumError(), errorType);
   }
 
+  private LongsSketch.Row[] getSortItems(final long threshold, final ErrorType errorType) {
+	  LongsSketch.Row[] R1 = sortItems(threshold, errorType);
+	  LongsSketch.Row[] R2 = sortItems(threshold, errorType);
+	  while(!RowArraysAreEqual(R1, R2)) {
+		  R1 = R2;
+		  R2 = sortItems(threshold, errorType);
+	  }
+	  return R1;
+  }
+  
   /**
    * @return An upper bound on the maximum error of getEstimate(item) for any item.
    * This is equivalent to the maximum distance between the upper bound and the lower bound
@@ -550,6 +578,10 @@ public class ComposableLongsSketch {
   public int getNumActiveItems() {
     return getHashMap().getNumActive();
   }
+  
+  public int getNumActiveItems(Cell cellToRead) {
+	    return getHashMap(cellToRead).getNumActive();
+	  }
 
   /**
    * Returns the number of bytes required to store this sketch as an array of bytes.
@@ -601,7 +633,7 @@ public class ComposableLongsSketch {
    */
   public ComposableLongsSketch merge(final ComposableLongsSketch other) {
     if (other == null) { return this; }
-    if (other.isEmpty()) { return this; }
+    if (other.getStreamLength() == 0) { return this; }
 
     final long streamWt = getStreamWeight() + other.getStreamWeight(); //capture before merge
 
@@ -624,18 +656,17 @@ public class ComposableLongsSketch {
    */
   public ComposableLongsSketch merge(final LongsSketch other) {
     if (other == null) { return this; }
-    if (other.isEmpty()) { return this; }
-    
-    // TODO: check this.size >= 2 * other.size, and fix update()
+    if (other.getStreamLength() == 0) { return this; }
 
-    final long streamWt = getStreamWeight() + other.getStreamWeight(); //capture before merge
+    assert(getStreamWeight(Cell.WriteCell) == getStreamWeight(Cell.ReadCell));
+    final long streamWt = getStreamWeight(Cell.WriteCell) + other.getStreamWeight(); //capture before merge
 
     final ReversePurgeLongHashMap.Iterator iter = other.getHashMap().iterator();
     while (iter.next()) { //this may add to offset during rebuilds
       this.update(iter.getKey(), iter.getValue());
     }
-    setOffset(getOffset(false) + other.getOffset(), false);
-    setStreamWeight(streamWt, false); //corrected streamWeight
+    setOffset(getOffset(Cell.WriteCell) + other.getOffset(), Cell.WriteCell);
+    setStreamWeight(streamWt, Cell.WriteCell); //corrected streamWeight
     
     switchCellsAndCopyProperties();
     return this;
@@ -645,11 +676,11 @@ public class ComposableLongsSketch {
    * 
    */
   private void switchCellsAndCopyProperties() {
-	  CellToRead.set(CellToRead.get() == 0 ? 1 : 0); //flip cells
-	  setCurMapCap(getCurMapCap(),false);
-	  setOffset(getOffset(), false);
-	  setStreamWeight(getStreamWeight(), false);
-	  setHashMap(ReversePurgeLongHashMap.getInstance(getHashMap().serializeToString()),false);
+	  FlipCells();
+	  setCurMapCap(getCurMapCap(),Cell.WriteCell);
+	  setOffset(getOffset(), Cell.WriteCell);
+	  setStreamWeight(getStreamWeight(), Cell.WriteCell);
+	  setHashMap(ReversePurgeLongHashMap.getInstance(getHashMap().serializeToString()), Cell.WriteCell);
   }
   
   /**
@@ -680,7 +711,7 @@ public class ComposableLongsSketch {
     final int flags = (getHashMap().getNumActive() == 0) ? EMPTY_FLAG_MASK : 0; //3
     final String fmt = "%d,%d,%d,%d,%d,%d,";
     final String s =
-        String.format(fmt, serVer, famID, lgMaxMapSz, flags, streamWeight, offset);
+        String.format(fmt, serVer, famID, lgMaxMapSz, flags, streamWeight[0], offset[0]);
     sb.append(s);
     sb.append(getHashMap().serializeToString()); //numActive, curMaplen, key[i], value[i], ...
     // maxMapCap, samplesize are deterministic functions of maxMapSize,
@@ -743,8 +774,8 @@ public class ComposableLongsSketch {
   public String toString() {
     final StringBuilder sb = new StringBuilder();
     sb.append("FrequentLongsSketch:").append(LS);
-    sb.append("  Stream Length    : " + streamWeight).append(LS);
-    sb.append("  Max Error Offset : " + offset).append(LS);
+    sb.append("  Stream Length    : " + streamWeight[0]).append(LS);
+    sb.append("  Max Error Offset : " + offset[0]).append(LS);
     sb.append(getHashMap().toString());
     return sb.toString();
   }
@@ -770,10 +801,10 @@ public class ComposableLongsSketch {
   /**
    * Update this sketch with an item and a frequency count of one.
    * @param item for which the frequency should be increased.
-   */
+ 
   private void update(final long item) {
     update(item, 1);
-  }
+  }  */
 
   /**
    * Update this sketch with a item and a positive frequency count (or weight).
@@ -787,174 +818,69 @@ public class ComposableLongsSketch {
     if (count < 0) {
       throw new SketchesArgumentException("Count may not be negative");
     }
-    setStreamWeight(getStreamWeight(false) + count);
-    getHashMap(false).adjustOrPutValue(item, count);
+    setStreamWeight(getStreamWeight(Cell.WriteCell) + count, Cell.WriteCell);
+    getHashMap(Cell.WriteCell).adjustOrPutValue(item, count);
 
-    if (getNumActiveItems() > getCurMapCap(false)) { //over the threshold, we need to do something
-      if (getHashMap(false).getLgLength() < lgMaxMapSize) { //below tgt size, we can grow
-    	  getHashMap(false).resize(2 * getHashMap(false).getLength());
-        setCurMapCap(getHashMap(false).getCapacity(), false);
+    if (getNumActiveItems(Cell.WriteCell) > getCurMapCap(Cell.WriteCell)) { //over the threshold, we need to do something
+      if (getHashMap(Cell.WriteCell).getLgLength() < lgMaxMapSize) { //below tgt size, we can grow
+    	  getHashMap(Cell.WriteCell).resize(2 * getHashMap(Cell.WriteCell).getLength());
+        setCurMapCap(getHashMap(Cell.WriteCell).getCapacity(), Cell.WriteCell);
       } else { //At tgt size, must purge
-    	setOffset(getOffset(false) + getHashMap(false).purge(sampleSize), false);
-        if (getNumActiveItems() > getMaximumMapCapacity()) {
+    	setOffset(getOffset(Cell.WriteCell) + getHashMap(Cell.WriteCell).purge(sampleSize), Cell.WriteCell);
+        if (getNumActiveItems(Cell.WriteCell) > getMaximumMapCapacity()) {
           throw new SketchesStateException("Purge did not reduce active items.");
         }
       }
     }
   }
-
-  /**
-   * Row class that defines the return values from a getFrequentItems query.
-   */
-  public static class Row implements Comparable<Row> {
-    final long item;
-    final long est;
-    final long ub;
-    final long lb;
-    private static final String fmt =  ("  %20d%20d%20d %d");
-    private static final String hfmt = ("  %20s%20s%20s %s");
-
-    Row(final long item, final long estimate, final long ub, final long lb) {
-      this.item = item;
-      est = estimate;
-      this.ub = ub;
-      this.lb = lb;
-    }
-
-    /**
-     * @return item of type T
-     */
-    public long getItem() { return item; }
-
-    /**
-     * @return the estimate
-     */
-    public long getEstimate() { return est; }
-
-    /**
-     * @return the upper bound
-     */
-    public long getUpperBound() { return ub; }
-
-    /**
-     * @return return the lower bound
-     */
-    public long getLowerBound() { return lb; }
-
-    /**
-     * @return the descriptive row header
-     */
-    public static String getRowHeader() {
-      return String.format(hfmt,"Est", "UB", "LB", "Item");
-    }
-
-    @Override
-    public String toString() {
-      return String.format(fmt, est, ub, lb, item);
-    }
-
-    /**
-     * This compareTo is strictly limited to the Row.getEstimate() value and does not imply any
-     * ordering whatsoever to the other elements of the row: item and upper and lower bounds.
-     * Defined this way, this compareTo will be consistent with hashCode() and equals(Object).
-     * @param that the other row to compare to.
-     * @return a negative integer, zero, or a positive integer as this.getEstimate() is less than,
-     * equal to, or greater than that.getEstimate().
-     */
-    @Override
-    public int compareTo(final Row that) {
-      return (est < that.est) ? -1 : (est > that.est) ? 1 : 0;
-    }
-
-    /**
-     * This hashCode is computed only from the Row.getEstimate() value.
-     * Defined this way, this hashCode will be consistent with equals(Object):<br>
-     * If (x.equals(y)) implies: x.hashCode() == y.hashCode().<br>
-     * If (!x.equals(y)) does NOT imply: x.hashCode() != y.hashCode().
-     * @return the hashCode computed from getEstimate().
-     */
-    @Override
-    public int hashCode() {
-      final int prime = 31;
-      int result = 1;
-      result = (prime * result) + (int) (est ^ (est >>> 32));
-      return result;
-    }
-
-    /**
-     * This equals is computed only from the Row.getEstimate() value and does not imply equality
-     * of the other items within the row: item and upper and lower bounds.
-     * Defined this way, this equals will be consistent with compareTo(Row).
-     * @param obj the other row to determine equality with.
-     * @return true if this.getEstimate() equals ((Row)obj).getEstimate().
-     */
-    @Override
-    public boolean equals(final Object obj) {
-      if (this == obj) { return true; }
-      if (obj == null) { return false; }
-      if ( !(obj instanceof Row)) { return false; }
-      final Row that = (Row) obj;
-      if (est != that.est) { return false; }
-      return true;
-    }
-
-  } // End of class Row
-
-  Row[] sortItems(final long threshold, final ErrorType errorType) {
-    final ArrayList<Row> rowList = new ArrayList<>();
-    final ReversePurgeLongHashMap.Iterator iter = getHashMap().iterator();
-    if (errorType == ErrorType.NO_FALSE_NEGATIVES) {
-      while (iter.next()) {
-        final long est = getEstimate(iter.getKey());
-        final long ub = getUpperBound(iter.getKey());
-        final long lb = getLowerBound(iter.getKey());
-        if (ub >= threshold) {
-          final Row row = new Row(iter.getKey(), est, ub, lb);
-          rowList.add(row);
-        }
-      }
-    } else { //NO_FALSE_POSITIVES
-      while (iter.next()) {
-        final long est = getEstimate(iter.getKey());
-        final long ub = getUpperBound(iter.getKey());
-        final long lb = getLowerBound(iter.getKey());
-        if (lb >= threshold) {
-          final Row row = new Row(iter.getKey(), est, ub, lb);
-          rowList.add(row);
-        }
-      }
-    }
-
-    // descending order
-    rowList.sort(new Comparator<Row>() {
-      @Override
-      public int compare(final Row r1, final Row r2) {
-        return r2.compareTo(r1);
-      }
-    });
-
-    final Row[] rowsArr = rowList.toArray(new Row[rowList.size()]);
-    return rowsArr;
+  
+  private boolean RowArraysAreEqual(LongsSketch.Row[] R1, LongsSketch.Row[] R2) {
+	  int size = R1.length;
+	  if (size != R2.length) {
+		  return false;
+	  }
+	  for(int i=0; i<size; i++) {
+		  if (!R1[i].equals(R2[i])) {
+			  return false;
+		  }
+	  }
+	  return true;
   }
+  
+  LongsSketch.Row[] sortItems(final long threshold, final ErrorType errorType) {
+	    final ArrayList<LongsSketch.Row> rowList = new ArrayList<>();
+	    final ReversePurgeLongHashMap.Iterator iter = getHashMap().iterator();
+	    if (errorType == ErrorType.NO_FALSE_NEGATIVES) {
+	      while (iter.next()) {
+	        final long est = getEstimate(iter.getKey());
+	        final long ub = getUpperBound(iter.getKey());
+	        final long lb = getLowerBound(iter.getKey());
+	        if (ub >= threshold) {
+	          final LongsSketch.Row row = new Row(iter.getKey(), est, ub, lb);
+	          rowList.add(row);
+	        }
+	      }
+	    } else { //NO_FALSE_POSITIVES
+	      while (iter.next()) {
+	        final long est = getEstimate(iter.getKey());
+	        final long ub = getUpperBound(iter.getKey());
+	        final long lb = getLowerBound(iter.getKey());
+	        if (lb >= threshold) {
+	          final LongsSketch.Row row = new Row(iter.getKey(), est, ub, lb);
+	          rowList.add(row);
+	        }
+	      }
+	    }
 
-  /**
-   * Deserializes an array of String tokens into a hash map object of this class.
-   *
-   * @param tokens the given array of Strings tokens.
-   * @return a hash map object of this class
-   */
-  static ReversePurgeLongHashMap deserializeFromStringArray(final String[] tokens) {
-    final int ignore = STR_PREAMBLE_TOKENS;
-    final int numActive = Integer.parseInt(tokens[ignore]);
-    final int length = Integer.parseInt(tokens[ignore + 1]);
-    final ReversePurgeLongHashMap hashMap = new ReversePurgeLongHashMap(length);
-    int j = 2 + ignore;
-    for (int i = 0; i < numActive; i++) {
-      final long key = Long.parseLong(tokens[j++]);
-      final long value = Long.parseLong(tokens[j++]);
-      hashMap.adjustOrPutValue(key, value);
-    }
-    return hashMap;
-  }
+	    // descending order
+	    rowList.sort(new Comparator<LongsSketch.Row>() {
+	      @Override
+	      public int compare(final LongsSketch.Row r1, final LongsSketch.Row r2) {
+	        return r2.compareTo(r1);
+	      }
+	    });
 
+	    final LongsSketch.Row[] rowsArr = rowList.toArray(new LongsSketch.Row[rowList.size()]);
+	    return rowsArr;
+	  }
 }
