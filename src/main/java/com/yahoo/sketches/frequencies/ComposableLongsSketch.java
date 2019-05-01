@@ -687,6 +687,7 @@ public class ComposableLongsSketch {
    * Resets this sketch to a virgin state.
    */
   public void reset() {
+	  //TODO: get last table size and reset to it
     hashMap[0] = new ReversePurgeLongHashMap(1 << LG_MIN_MAP_SIZE);
     hashMap[1] = new ReversePurgeLongHashMap(1 << LG_MIN_MAP_SIZE);
     setCurMapCap(getHashMap().getCapacity());
