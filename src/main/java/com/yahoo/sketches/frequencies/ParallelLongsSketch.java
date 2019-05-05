@@ -96,6 +96,12 @@ public class ParallelLongsSketch {
 					continue;
 				}
 				global.merge(curr.backgroundSketch);
+				if(global.getStreamLength() >= 1000000000) {
+					for (int i = 0; i < locals.length; i++) {
+						locals[i] = null;	
+					}
+					break;
+				}
 				curr.backgroundSketch.reset();
 				curr.dataTransferFinished.set(true);
 				synchronized (curr.mergingLock) {
@@ -127,25 +133,27 @@ public class ParallelLongsSketch {
 		
 		@Override
 		public void run() {
-			longPair pair;
+			longPair pair = new longPair(0, 1);
 			while (true){
-				try {
+				/*try {
 					pair = stream.take();
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					continue;
-				}
+				}*/
 				internalUpdate(pair.A, pair.B);
 			}	
 		}
 		
-		private void internalUpdate(final long item, final long count) {
+		private void internalUpdate(long item, final long count) {
+			item = (long) (Math.random() * 1000000);
 			updatedSketch.update(item, count);
 			currentSkecthUpdates += count;
 			if(currentSkecthUpdates >= LocalSketchsMaxSize) {
 				while(!dataTransferFinished.get()) {
 					synchronized (mergingLock) {
 					    try {
+					    	System.out.println("b is not big enough");
 							mergingLock.wait();
 						} catch (InterruptedException e) {
 							e.printStackTrace();
