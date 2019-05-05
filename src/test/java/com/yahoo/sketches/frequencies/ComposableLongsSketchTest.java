@@ -22,10 +22,10 @@ public static void main(String[] args) {
 
   @Test
   public void ParallelLongsSketchSpeedTest() {
-	  	int numOfLocalSketches = 3;
+	  	int numOfLocalSketches = 29;
 	  	int maxMapSize = 128;
 	  	int maxSketchsSize = 10000000;
-	  	long numOfInputs = 100000000L; 
+	  	long numOfInputs = 1000000000L; 
 	  	long randLong;
 	  	
 	  	System.out.println("ParallelLongsSketchSpeedTest started");
@@ -44,8 +44,8 @@ public static void main(String[] args) {
 		}
 		long oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
 		
-		System.out.println("paralle Total Time: " + paralleTotalTime);
-		System.out.println("old Sketch Total Time " + oldSketchTotalTime);
+		System.out.println("   paralle Total Time: " + paralleTotalTime);
+		System.out.println("old Sketch Total Time: " + oldSketchTotalTime);
 		System.out.println("ParallelLongsSketchSpeedTest ended");
 }
 
@@ -55,7 +55,7 @@ public static void main(String[] args) {
 	  	int maxMapSize = 128;
 	  	int maxSketchsSize = 1000;
 	  	long numOfInputs = 10000000L; 
-		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize);
+		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, numOfInputs);
 		LongsSketch oldSketch = new LongsSketch(maxMapSize);
 		
 		long randLong;
