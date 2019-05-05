@@ -8,9 +8,13 @@ public class ParallelLongsSketch {
 	private LocalSketch[] locals;
 	private Merger merger;
 	private int localsSize;
+	private boolean shutdown = false;
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
-	ParallelLongsSketch(final int numOfLocalSketches, final int maxMapSize, final int maxSketchsSize){
+	private long TEST_SIZE;
+	
+	ParallelLongsSketch(final int numOfLocalSketches, final int maxMapSize, final int maxSketchsSize, final long TEST_SIZE){
+		this.TEST_SIZE = TEST_SIZE;
 		global = new ComposableLongsSketch(maxMapSize);
 		localsSize = numOfLocalSketches;
 		locals = new LocalSketch[localsSize];
@@ -23,7 +27,7 @@ public class ParallelLongsSketch {
 	}
 	
 	void mergeLoacls() {
-		for (LocalSketch localSketch : locals) {
+		/*for (LocalSketch localSketch : locals) {	
 			while(!localSketch.dataTransferFinished.get()) {
 				try {
 					Thread.sleep(100);
@@ -43,9 +47,28 @@ public class ParallelLongsSketch {
 					e.printStackTrace();
 				}
 			}	
-		}
+		}*/
+		/*
+		shutdown = true;
 		for (int i = 0; i < locals.length; i++) {
-			locals[i] = null;	
+			try {
+				locals[i].join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}	
+		}
+		try {
+			merger.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}*/
+		try {
+			merger.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 
@@ -62,6 +85,10 @@ public class ParallelLongsSketch {
 */
 	public void update(final long item, final long count) {
 		locals[(int) Math.random() * localsSize].update(item, count);
+	}
+	
+	public long getStreamLength() {
+		return global.getStreamLength();
 	}
 	
 	public long getMaximumError() {
@@ -88,7 +115,7 @@ public class ParallelLongsSketch {
 		@Override
 		public void run() {
 			LocalSketch curr;
-			while (true) {
+			while (!shutdown) {
 				try {
 					curr = mergeQueue.take();
 				} catch (InterruptedException e) {
@@ -96,9 +123,15 @@ public class ParallelLongsSketch {
 					continue;
 				}
 				global.merge(curr.backgroundSketch);
-				if(global.getStreamLength() >= 1000000000) {
+				if(global.getStreamLength() >= TEST_SIZE) {
+					shutdown = true;
 					for (int i = 0; i < locals.length; i++) {
-						locals[i] = null;	
+						try {
+							locals[i].join();
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}	
 					}
 					break;
 				}
@@ -134,7 +167,7 @@ public class ParallelLongsSketch {
 		@Override
 		public void run() {
 			longPair pair = new longPair(0, 1);
-			while (true){
+			while (!shutdown){
 				/*try {
 					pair = stream.take();
 				} catch (InterruptedException e) {
