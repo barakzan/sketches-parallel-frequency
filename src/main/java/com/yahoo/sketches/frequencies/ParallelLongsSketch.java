@@ -6,8 +6,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ParallelLongsSketch {
 	private ComposableLongsSketch global;
 	private LocalSketch[] locals;
-	private int localsSize;
 	private Merger merger;
+	private int localsSize;
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
 	ParallelLongsSketch(final int numOfLocalSketches, final int maxMapSize, final int maxSketchsSize){
