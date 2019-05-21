@@ -2,7 +2,6 @@ package com.yahoo.sketches.frequencies;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ParallelLongsSketch {
 	private ComposableLongsSketch global;
@@ -13,6 +12,18 @@ public class ParallelLongsSketch {
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
 	private long TEST_SIZE;
+	public long startParalleTime;
+	public Object testFinished = new Object();
+	
+	public void waitTestToFinish() {
+		synchronized (testFinished) {
+		    try {
+		    	testFinished.wait();
+			} catch (InterruptedException e) {
+				System.out.println(e.getMessage());
+			}
+		}
+	}
 	
 	ParallelLongsSketch(final int numOfLocalSketches, final int maxMapSize, final int maxSketchsSize, final long TEST_SIZE){
 		this.TEST_SIZE = TEST_SIZE;
@@ -22,6 +33,9 @@ public class ParallelLongsSketch {
 		for (int i = 0; i < localsSize; i++) {
 			locals[i] = new LocalSketch(maxMapSize, maxSketchsSize);
 			locals[i].setPriority(java.lang.Thread.MAX_PRIORITY);
+		}
+		startParalleTime = System.currentTimeMillis();
+		for (int i = 0; i < localsSize; i++) {
 			locals[i].start();
 		}
 		merger = new Merger();
@@ -125,19 +139,31 @@ public class ParallelLongsSketch {
 					continue;
 				}
 				global.merge(curr.backgroundSketch);
+				///////////// TEST ////////////////
 				if(global.getStreamLength() >= TEST_SIZE) {
-					shutdown = true;
+					shutdown = true;			
+					//for the func waitTestToFinish
+					synchronized (testFinished) {
+						testFinished.notifyAll();
+					}
+					/////////////
 					for (int i = 0; i < locals.length; i++) {
-						try {
+						locals[i].dataTransferFinished.set(true);
+					}
+					for (int i = 0; i < locals.length; i++) {
+						synchronized (locals[i].mergingLock) {
+							locals[i].mergingLock.notifyAll();
+						}
+						try {	
 							locals[i].join();
 						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
-							
 							System.out.println(e.getMessage());
 						}	
 					}
 					break;
 				}
+				//////////////////////////////////////////
+				
 				curr.backgroundSketch.reset();
 				curr.dataTransferFinished.set(true);
 				synchronized (curr.mergingLock) {
@@ -187,9 +213,9 @@ public class ParallelLongsSketch {
 			currentSkecthUpdates += count;
 			if(currentSkecthUpdates >= LocalSketchsMaxSize) {
 				while(!dataTransferFinished.get()) {
+					System.out.println("b is not big enough " + Thread.currentThread().getId());
 					synchronized (mergingLock) {
 					    try {
-					    	System.out.println("b is not big enough");
 							mergingLock.wait();
 						} catch (InterruptedException e) {
 							System.out.println(e.getMessage());
@@ -197,9 +223,9 @@ public class ParallelLongsSketch {
 					}
 				}
 				currentSkecthUpdates = 0;
-				LongsSketch temp = updatedSketch;
-				updatedSketch = backgroundSketch;
-				backgroundSketch = temp;
+				LongsSketch temp = backgroundSketch;
+				backgroundSketch = updatedSketch;
+				updatedSketch = temp;		
 				dataTransferFinished.set(false);
 				mergeQueue.add(this);	
 			}		
