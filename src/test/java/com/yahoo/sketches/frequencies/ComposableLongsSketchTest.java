@@ -25,7 +25,7 @@ public static void main(String[] args) {
 	  	int numOfLocalSketches = 29;
 	  	int maxMapSize = 64;
 	  	int maxSketchsSize = 25000000;
-	  	long numOfInputs = 1000000000L; 
+	  	long numOfInputs = 10000000000L; 
 	  	long randLong;
 	  	
 	  	System.out.println("ParallelLongsSketchSpeedTest started");
