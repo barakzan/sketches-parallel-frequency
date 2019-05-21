@@ -2,6 +2,7 @@ package com.yahoo.sketches.frequencies;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ParallelLongsSketch {
 	private ComposableLongsSketch global;
@@ -12,6 +13,7 @@ public class ParallelLongsSketch {
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
 	private long TEST_SIZE;
+	private AtomicLong numOfUpdates = new AtomicLong(0);
 	
 	ParallelLongsSketch(final int numOfLocalSketches, final int maxMapSize, final int maxSketchsSize, final long TEST_SIZE){
 		this.TEST_SIZE = TEST_SIZE;
@@ -143,6 +145,7 @@ public class ParallelLongsSketch {
 					curr.mergingLock.notify();
 				}
 			}
+			System.out.println("numOfUpdates is: " + numOfUpdates.get());
 		}
 	}
 	
@@ -176,6 +179,7 @@ public class ParallelLongsSketch {
 					System.out.println(e.getMessage());
 					continue;
 				}*/
+				numOfUpdates.incrementAndGet();
 				internalUpdate(pair.A, pair.B);
 			}	
 		}

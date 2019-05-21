@@ -658,7 +658,7 @@ public class ComposableLongsSketch {
     if (other == null) { return this; }
     if (other.getStreamLength() == 0) { return this; }
 
-    assert(getStreamWeight(Cell.WriteCell) == getStreamWeight(Cell.ReadCell));
+    //assert(getStreamWeight(Cell.WriteCell) == getStreamWeight(Cell.ReadCell));
     final long streamWt = getStreamWeight(Cell.WriteCell) + other.getStreamWeight(); //capture before merge
 
     final ReversePurgeLongHashMap.Iterator iter = other.getHashMap().iterator();
