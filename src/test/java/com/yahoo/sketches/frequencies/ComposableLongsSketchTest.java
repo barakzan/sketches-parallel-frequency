@@ -20,12 +20,22 @@ public static void main(String[] args) {
 	////t.basicComposableLongsSketchTest();
 }
 
+/*
+
+				Long startM, endM;
+				startM = System.currentTimeMillis();
+				endM = System.currentTimeMillis();
+				System.out.println("merge time is: " + (endM - startM));
+				
+ */
+
+
   @Test
   public void ParallelLongsSketchSpeedTest() {
-	  	int numOfLocalSketches = 5;
-	  	int maxMapSize = 64;
-	  	int maxSketchsSize = 50000;
-	  	long numOfInputs = 10000000L; 
+	  	int numOfLocalSketches = 29;
+	  	int maxMapSize = 32;
+	  	int maxSketchsSize = 1000000;
+	  	long numOfInputs = 1000000000L; 
 	  	long randLong;
 	  	
 	  	System.out.println("ParallelLongsSketchSpeedTest started");

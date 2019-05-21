@@ -131,13 +131,18 @@ public class ParallelLongsSketch {
 		@Override
 		public void run() {
 			LocalSketch curr;
+			
+			Long startM, endM;
+			Long sum = 0L;
+			
+			
 			while (!shutdown) {
 				try {
 					curr = mergeQueue.take();
 				} catch (InterruptedException e) {
 					System.out.println(e.getMessage());
 					continue;
-				}
+				}	
 				global.merge(curr.backgroundSketch);
 				///////////// TEST ////////////////
 				if(global.getStreamLength() >= TEST_SIZE) {
@@ -163,13 +168,19 @@ public class ParallelLongsSketch {
 					break;
 				}
 				//////////////////////////////////////////
-				
-				curr.backgroundSketch.reset();
+				curr.backgroundSketch.reset();		
 				curr.dataTransferFinished.set(true);
+
+				startM = System.currentTimeMillis();
+				
 				synchronized (curr.mergingLock) {
 					curr.mergingLock.notify();
 				}
+				
+				endM = System.currentTimeMillis();
+				sum += (endM - startM);
 			}
+			System.out.println("merge time is: " + sum);
 		}
 	}
 	
@@ -195,7 +206,9 @@ public class ParallelLongsSketch {
 		
 		@Override
 		public void run() {
-			longPair pair = new longPair(0, 1);
+			//Long startM, endM;
+			//Long sum = 0L;
+			Long num = 7L;
 			while (!shutdown){
 				/*try {
 					pair = stream.take();
@@ -203,17 +216,24 @@ public class ParallelLongsSketch {
 					System.out.println(e.getMessage());
 					continue;
 				}*/
+				
+				//longPair pair = new longPair((long) (Math.random() * 1000000), 1);
+				longPair pair = new longPair(++num, 1);
+				//startM = System.currentTimeMillis();
 				internalUpdate(pair.A, pair.B);
+				//endM = System.currentTimeMillis();
+				//sum += (endM - startM);
+				//System.out.println("update time is: " + (endM - startM));
 			}	
+			//System.out.println("sum time is: " + sum);
 		}
 		
 		private void internalUpdate(long item, final long count) {
-			item = (long) (Math.random() * 1000000);
 			updatedSketch.update(item, count);
 			currentSkecthUpdates += count;
 			if(currentSkecthUpdates >= LocalSketchsMaxSize) {
 				while(!dataTransferFinished.get()) {
-					System.out.println("b is not big enough " + Thread.currentThread().getId());
+					//System.out.println("b is not big enough " + Thread.currentThread().getId());
 					synchronized (mergingLock) {
 					    try {
 							mergingLock.wait();
