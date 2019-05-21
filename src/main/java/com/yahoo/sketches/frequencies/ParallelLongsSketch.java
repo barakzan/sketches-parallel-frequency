@@ -20,6 +20,7 @@ public class ParallelLongsSketch {
 		locals = new LocalSketch[localsSize];
 		for (int i = 0; i < localsSize; i++) {
 			locals[i] = new LocalSketch(maxMapSize, maxSketchsSize);
+			locals[i].setPriority(java.lang.Thread.MAX_PRIORITY);
 			locals[i].start();
 		}
 		merger = new Merger();
@@ -32,7 +33,7 @@ public class ParallelLongsSketch {
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					System.out.println(e.getMessage());
 				}
 			}
 			LongsSketch temp = localSketch.updatedSketch;
@@ -44,7 +45,7 @@ public class ParallelLongsSketch {
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					System.out.println(e.getMessage());
 				}
 			}	
 		}*/
@@ -55,20 +56,20 @@ public class ParallelLongsSketch {
 				locals[i].join();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				System.out.println(e.getMessage());
 			}	
 		}
 		try {
 			merger.join();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.out.println(e.getMessage());
 		}*/
 		try {
 			merger.join();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.out.println(e.getMessage());
 		}
 	}
 
@@ -119,7 +120,7 @@ public class ParallelLongsSketch {
 				try {
 					curr = mergeQueue.take();
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					System.out.println(e.getMessage());
 					continue;
 				}
 				global.merge(curr.backgroundSketch);
@@ -130,7 +131,8 @@ public class ParallelLongsSketch {
 							locals[i].join();
 						} catch (InterruptedException e) {
 							// TODO Auto-generated catch block
-							e.printStackTrace();
+							
+							System.out.println(e.getMessage());
 						}	
 					}
 					break;
@@ -171,7 +173,7 @@ public class ParallelLongsSketch {
 				/*try {
 					pair = stream.take();
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					System.out.println(e.getMessage());
 					continue;
 				}*/
 				internalUpdate(pair.A, pair.B);
@@ -189,7 +191,7 @@ public class ParallelLongsSketch {
 					    	System.out.println("b is not big enough");
 							mergingLock.wait();
 						} catch (InterruptedException e) {
-							e.printStackTrace();
+							System.out.println(e.getMessage());
 						}
 					}
 				}
