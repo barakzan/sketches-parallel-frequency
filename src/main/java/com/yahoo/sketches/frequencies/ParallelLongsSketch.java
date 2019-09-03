@@ -1,5 +1,6 @@
 package com.yahoo.sketches.frequencies;
 
+import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -208,7 +209,8 @@ public class ParallelLongsSketch {
 		public void run() {
 			//Long startM, endM;
 			//Long sum = 0L;
-			Long num = 7L;
+			//Long num = 7L;
+			Random myRandom = new Random();
 			while (!shutdown){
 				/*try {
 					pair = stream.take();
@@ -218,9 +220,9 @@ public class ParallelLongsSketch {
 				}*/
 				
 				//longPair pair = new longPair((long) (Math.random() * 1000000), 1);
-				longPair pair = new longPair(++num, 1);
+				// longPair pair = new longPair(myRandom.nextInt(1000000000), 1);
 				//startM = System.currentTimeMillis();
-				internalUpdate(pair.A, pair.B);
+				internalUpdate(myRandom.nextInt(1000000000), 1);
 				//endM = System.currentTimeMillis();
 				//sum += (endM - startM);
 				//System.out.println("update time is: " + (endM - startM));
