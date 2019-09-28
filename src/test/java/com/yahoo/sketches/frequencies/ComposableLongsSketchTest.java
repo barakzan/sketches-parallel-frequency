@@ -20,59 +20,73 @@ public static void main(String[] args) {
 	////t.basicComposableLongsSketchTest();
 }
 
-/*
-
-				Long startM, endM;
-				startM = System.currentTimeMillis();
-				endM = System.currentTimeMillis();
-				System.out.println("merge time is: " + (endM - startM));
-				
- */
-
-
   @Test
   public void ParallelLongsSketchSpeedTest() {
-	  	int numOfLocalSketches = 29;
+	  	int numOfLocalSketches = 4;
 	  	int maxMapSize = 32;
 	  	int maxSketchsSize = 1000000;
-	  	long numOfInputs = 1000000000L; 
+	  	long numOfInputs = 100000000L; 
+	  	long smallRandomRange = maxMapSize + 7;
+	  	long bigRandomRange = 100000;
 	  	long randLong;
 	  	
-	  	System.out.println("ParallelLongsSketchSpeedTest started");
-	  		
-		//test new
-		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, numOfInputs);
-		long startParalleTime = parallelSketch.startParalleTime;
-		parallelSketch.waitTestToFinish();
+	  	System.out.println("ParallelLongsSketchSpeedTest started\n");
+	  	
+	  	System.out.println("numOfLocalSketches - " + numOfLocalSketches);
+	  	System.out.println("maxMapSize - " + maxMapSize);
+	  	System.out.println("maxSketchsSize - " + maxSketchsSize);
+	  	System.out.println("numOfInputs - " + numOfInputs);
+	  	System.out.println();	
+	  	
+		//test new with zeros
+		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, numOfInputs);
+		long paralleTotalTime = parallelSketch.finishThenDispose();
+		System.out.println("paralle Total Time with zeros: " + paralleTotalTime + "ms");
 		
-		System.out.println("stream len = " + parallelSketch.getStreamLength());
-		long paralleTotalTime = System.currentTimeMillis() - startParalleTime;
-		System.out.println("   paralle Total Time: " + paralleTotalTime);
+		//test new with random range = maxMapSize + 7
+		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_RANDOM_RANGE, numOfInputs, smallRandomRange);
+		paralleTotalTime = parallelSketch.finishThenDispose();
+		System.out.println("paralle Total Time with random range of " + smallRandomRange + " numbers: " + paralleTotalTime + "ms");
 		
-		parallelSketch.mergeLoacls();
-		
-	  	// test old
+		//test new with random range = 100000
+		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_RANDOM_RANGE, numOfInputs, bigRandomRange);
+		paralleTotalTime = parallelSketch.finishThenDispose();
+		System.out.println("paralle Total Time with random range of 100000 numbers: " + paralleTotalTime + "ms");
+	
+	  	// test old with smallRandomRange
 		long startoldSketchTime = System.currentTimeMillis();
 		LongsSketch oldSketch = new LongsSketch(maxMapSize);
 		for(long n = 0; n<numOfInputs; n++) {
-			randLong = (long) (Math.random() * 10000000);
+			randLong = (long) (Math.random() * smallRandomRange);
 			oldSketch.update(randLong);		
 		}
 		long oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
-		System.out.println("old Sketch Total Time: " + oldSketchTotalTime);
+		System.out.println("old Sketch with smallRandomRange Total Time: " + oldSketchTotalTime + "ms");
 		
-		System.out.println("ParallelLongsSketchSpeedTest ended");
+	  	// test old with bigRandomRange
+		startoldSketchTime = System.currentTimeMillis();
+		oldSketch = new LongsSketch(maxMapSize);
+		for(long n = 0; n<numOfInputs; n++) {
+			randLong = (long) (Math.random() * bigRandomRange);
+			oldSketch.update(randLong);		
+		}
+		oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
+		System.out.println("old Sketch with bigRandomRange Total Time: " + oldSketchTotalTime + "ms");
+		
+		System.out.println("\nParallelLongsSketchSpeedTest ended");
 }
 
   @Test
   public void basicParallelLongsSketchTest() {
-	  	int numOfLocalSketches = 7;
+	  	int numOfLocalSketches = 99;
 	  	int maxMapSize = 128;
-	  	int maxSketchsSize = 1000;
+	  	int maxSketchsSize = 10000;
 	  	long numOfInputs = 10000000L; 
-		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, numOfInputs);
+		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize);
 		LongsSketch oldSketch = new LongsSketch(maxMapSize);
 		
+		System.out.println("basicParallelLongsSketchTest started:");
+				
 		long randLong;
 		for(long n = 0; n<numOfInputs; n++) {
 	    	if(Math.random() < 0.75) {
@@ -84,8 +98,20 @@ public static void main(String[] args) {
 	    	parallelSketch.update(randLong);
 	    	oldSketch.update(randLong);
 		}
+		sleep(2000);
 
-		parallelSketch.mergeLoacls();
+		System.out.format("\ncalling finishThenDispose()\n");
+		
+		long estTime = parallelSketch.finishThenDispose();
+		System.out.format("estTime = " + estTime + "\n");
+		
+		if (parallelSketch.getStreamLength() < oldSketch.getStreamLength()) {
+			// add print of sizes
+			System.out.format("\nfailed to ingest all the inputs");
+			System.out.format(", StreamLength = " + parallelSketch.getStreamLength());
+			
+			return;
+		}
 		
 		Row[] parallelFrequentItems = parallelSketch.getFrequentItems(ErrorType.NO_FALSE_POSITIVES);
 		Row[] oldSketchFrequentItems = oldSketch.getFrequentItems(ErrorType.NO_FALSE_POSITIVES);
@@ -223,5 +249,14 @@ public static void main(String[] args) {
   static void println(String s) {
     //System.err.println(s); //disable here
   }
+  
+  public void sleep(int time) {
+	  	try {
+			Thread.sleep(time);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.out.println("sleeping for " + time + "ms");
+	  }
 
 }

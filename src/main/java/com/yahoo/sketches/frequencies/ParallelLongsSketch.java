@@ -9,101 +9,110 @@ public class ParallelLongsSketch {
 	private LocalSketch[] locals;
 	private Merger merger;
 	private int localsSize;
-	private boolean shutdown = false;
+	private AtomicBoolean shutdown = new AtomicBoolean(false);
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
-	private long TEST_SIZE;
-	public long startParalleTime;
-	public Object testFinished = new Object();
+	private TestTypes testType;
+	private long testSize;
+	private long startParalleTime;
 	
-	public void waitTestToFinish() {
-		synchronized (testFinished) {
-		    try {
-		    	testFinished.wait();
-			} catch (InterruptedException e) {
-				System.out.println(e.getMessage());
-			}
-		}
+	public enum TestTypes
+	{
+		NO_TEST,
+		TEST_ZEROS,
+		TEST_RANDOM_RANGE
 	}
 	
-	ParallelLongsSketch(final int numOfLocalSketches, final int maxMapSize, final int maxSketchsSize, final long TEST_SIZE){
-		this.TEST_SIZE = TEST_SIZE;
-		global = new ComposableLongsSketch(maxMapSize);
+	ParallelLongsSketch(){
+		initParallelLongsSketch(7, 256, 10000000, TestTypes.NO_TEST, 0L, 10000L);
+	}
+	
+	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize)
+	{
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, TestTypes.NO_TEST, 0L, 10000L);
+	}
+
+	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize){
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, 10000L);
+	}
+	
+	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, long testRandomRange){
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, testRandomRange);
+	}
+	
+	private void initParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, long testRandomRange) {
+		this.testType = testType;
+		this.testSize = testSize;
 		localsSize = numOfLocalSketches;
+	
 		locals = new LocalSketch[localsSize];
 		for (int i = 0; i < localsSize; i++) {
 			locals[i] = new LocalSketch(maxMapSize, maxSketchsSize);
-			locals[i].setPriority(java.lang.Thread.MAX_PRIORITY);
 		}
+		global = new ComposableLongsSketch(maxMapSize);
+		merger = new Merger();
+		
 		startParalleTime = System.currentTimeMillis();
 		for (int i = 0; i < localsSize; i++) {
 			locals[i].start();
-		}
-		merger = new Merger();
+		}	
 		merger.start();
 	}
 	
-	void mergeLoacls() {
-		/*for (LocalSketch localSketch : locals) {	
-			while(!localSketch.dataTransferFinished.get()) {
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					System.out.println(e.getMessage());
-				}
+	public void mergeLocals() {
+		for (int i = 0; i < localsSize; i++) {
+			if (locals[i].isAlive() && !locals[i].isDone) {
+				locals[i].stream.add(new longPair(-1, -1));
 			}
-			LongsSketch temp = localSketch.updatedSketch;
-			localSketch.updatedSketch = localSketch.backgroundSketch;
-			localSketch.backgroundSketch = temp;
-			localSketch.dataTransferFinished.set(false);
-			mergeQueue.add(localSketch);
-			while(!localSketch.dataTransferFinished.get()) {
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					System.out.println(e.getMessage());
+		}	
+	}
+	
+	public long finishThenDispose() {
+		if (testType == TestTypes.NO_TEST) {
+			int finished = 0;
+			int i = 0;
+			while (finished < localsSize) {
+				long currStreamSize = locals[i].stream.size();
+				long currentSkecthUpdates = locals[i].currentSkecthUpdates;
+				boolean dataTransferFinished = locals[i].dataTransferFinished.get();
+				if (currStreamSize == 0 && currentSkecthUpdates == 0 &&	dataTransferFinished) {
+					finished++;
+				} else {
+					finished = 0;
 				}
-			}	
-		}*/
-		/*
-		shutdown = true;
-		for (int i = 0; i < locals.length; i++) {
-			try {
-				locals[i].join();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				System.out.println(e.getMessage());
-			}	
+				if (i == localsSize - 1) {
+					mergeLocals();
+					
+						sleep(200);
+				}
+				i = (i+1) % localsSize;
+			}
+			shutdown.set(true);
+			mergeLocals();
 		}
+		disposeNow();
+		return System.currentTimeMillis() - startParalleTime;
+	}
+	
+	private void disposeNow() {
 		try {
+			//mergeQueue.add(new LocalSketch());
 			merger.join();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			System.out.println(e.getMessage());
-		}*/
-		try {
-			merger.join();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			System.out.println(e.getMessage());
+			e.printStackTrace();
 		}
 	}
 
 	public void update(final long item) {
 		update(item, 1);
 	}
-/*	
-	private int i = 0;
+
+	private int currentLocal = 0;
 	public void update(final long item, final long count) {
-		//locals[(int) Math.random() * localsSize].update(item, count);
-		locals[i].update(item, count);
-		i = (++i) % localsSize;
+		locals[currentLocal].update(item, count);
+		currentLocal = (currentLocal + 1) % localsSize;
 	}
-*/
-	public void update(final long item, final long count) {
-		locals[(int) Math.random() * localsSize].update(item, count);
-	}
-	
+
 	public long getStreamLength() {
 		return global.getStreamLength();
 	}
@@ -129,60 +138,51 @@ public class ParallelLongsSketch {
 	}
 	
 	private class Merger extends Thread {
+		Merger() {
+			setName("Merger");
+		}
+
 		@Override
 		public void run() {
-			LocalSketch curr;
-			
-			Long startM, endM;
-			Long sum = 0L;
-			
-			
-			while (!shutdown) {
-				try {
-					curr = mergeQueue.take();
-				} catch (InterruptedException e) {
-					System.out.println(e.getMessage());
-					continue;
-				}	
-				global.merge(curr.backgroundSketch);
-				///////////// TEST ////////////////
-				if(global.getStreamLength() >= TEST_SIZE) {
-					shutdown = true;			
-					//for the func waitTestToFinish
-					synchronized (testFinished) {
-						testFinished.notifyAll();
+			try {
+				LocalSketch curr;
+				while (!shutdown.get()) {
+					curr = mergeQueue.take();		
+					if (curr.isFake) {
+						break;
+					}		
+					global.merge(curr.backgroundSketch);
+	
+					if(testType != TestTypes.NO_TEST && global.getStreamLength() >= testSize) {
+						break;
 					}
-					/////////////
-					for (int i = 0; i < locals.length; i++) {
-						locals[i].dataTransferFinished.set(true);
+	
+					curr.backgroundSketch.reset();		
+					curr.dataTransferFinished.set(true);
+					
+					synchronized (curr.mergingLock) {
+						curr.mergingLock.notify();
 					}
-					for (int i = 0; i < locals.length; i++) {
-						synchronized (locals[i].mergingLock) {
-							locals[i].mergingLock.notifyAll();
+				}
+				
+				shutdown.set(true);
+				mergeLocals();
+				for (int i = 0; i < locals.length; i++) {
+					curr = locals[i];
+					if (curr.isAlive() && !curr.isDone) {
+						curr.dataTransferFinished.set(true);
+						synchronized (curr.mergingLock) {
+							curr.mergingLock.notify();
 						}
-						try {	
-							locals[i].join();
-						} catch (InterruptedException e) {
-							System.out.println(e.getMessage());
-						}	
 					}
-					break;
+				}	
+				for (int i = 0; i < locals.length; i++) {
+					locals[i].join();
 				}
-				//////////////////////////////////////////
-				curr.backgroundSketch.reset();		
-				curr.dataTransferFinished.set(true);
-
-				startM = System.currentTimeMillis();
-				
-				synchronized (curr.mergingLock) {
-					curr.mergingLock.notify();
-				}
-				
-				endM = System.currentTimeMillis();
-				sum += (endM - startM);
+			} catch (InterruptedException e) {
+				System.out.println(e.getMessage());
 			}
-			System.out.println("merge time is: " + sum);
-		}
+		}	
 	}
 	
 	private class LocalSketch extends Thread {
@@ -190,15 +190,23 @@ public class ParallelLongsSketch {
 		private LongsSketch backgroundSketch;	
 		private int LocalSketchsMaxSize;
 		private int currentSkecthUpdates = 0;
+		private boolean isFake = false;
+		private boolean isDone = false;
 		private AtomicBoolean dataTransferFinished = new AtomicBoolean(true);
 
 		public Object mergingLock = new Object();
 		public LinkedBlockingQueue<longPair> stream = new LinkedBlockingQueue<longPair>();
 		
+		LocalSketch() {
+			isFake = true;
+			isDone = true;
+		}
+		
 		LocalSketch(final int maxMapSize, final int maxSketchsSize){
 			LocalSketchsMaxSize = maxSketchsSize;
 			updatedSketch = new LongsSketch(maxMapSize);
-			backgroundSketch = new LongsSketch(maxMapSize);			
+			backgroundSketch = new LongsSketch(maxMapSize);
+			setName("LocalSketch");
 		}
 		
 		public void update(final long item, final long count) {
@@ -207,52 +215,74 @@ public class ParallelLongsSketch {
 		
 		@Override
 		public void run() {
-			//Long startM, endM;
-			//Long sum = 0L;
-			//Long num = 7L;
-			Random myRandom = new Random();
-			while (!shutdown){
-				/*try {
-					pair = stream.take();
-				} catch (InterruptedException e) {
-					System.out.println(e.getMessage());
-					continue;
-				}*/
-				
-				//longPair pair = new longPair((long) (Math.random() * 1000000), 1);
-				// longPair pair = new longPair(myRandom.nextInt(1000000000), 1);
-				//startM = System.currentTimeMillis();
-				internalUpdate(myRandom.nextInt(1000000000), 1);
-				//endM = System.currentTimeMillis();
-				//sum += (endM - startM);
-				//System.out.println("update time is: " + (endM - startM));
-			}	
-			//System.out.println("sum time is: " + sum);
+			try {
+				switch (testType) {	
+				case TEST_ZEROS:
+					//// test with zeros
+					while (!shutdown.get()){
+						internalUpdate(0, 1);
+					}	
+					break;
+					
+				case TEST_RANDOM_RANGE:
+					//// test with random numbers
+					Random myRandom = new Random();
+					while (!shutdown.get()){
+						internalUpdate(myRandom.nextInt(1000000000), 1);
+					}	
+					break;
+					
+				default:
+					longPair pair;
+					while (!shutdown.get()){
+						pair = stream.take();
+						if (pair.B == -1) {
+							merge();
+						}
+						else {
+							internalUpdate(pair.A, pair.B);	
+						}	
+					}
+					break;
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			isDone = true;
+		}
+		
+		private void merge() {
+			while(!dataTransferFinished.get()) {
+				//System.out.println("b is not big enough " + Thread.currentThread().getId());
+				waitOnLock(mergingLock);
+			}
+			LongsSketch temp = backgroundSketch;
+			backgroundSketch = updatedSketch;
+			currentSkecthUpdates = 0;
+			updatedSketch = temp;	
+			dataTransferFinished.set(false);
+			mergeQueue.add(this);
 		}
 		
 		private void internalUpdate(long item, final long count) {
 			updatedSketch.update(item, count);
 			currentSkecthUpdates += count;
 			if(currentSkecthUpdates >= LocalSketchsMaxSize) {
-				while(!dataTransferFinished.get()) {
-					//System.out.println("b is not big enough " + Thread.currentThread().getId());
-					synchronized (mergingLock) {
-					    try {
-							mergingLock.wait();
-						} catch (InterruptedException e) {
-							System.out.println(e.getMessage());
-						}
-					}
+				merge();
+			}	
+		}
+		
+		private void waitOnLock(Object lock) {
+			synchronized (lock) {
+			    try {
+			    	lock.wait();
+				} catch (InterruptedException e) {
+					System.out.println(e.getMessage());
 				}
-				currentSkecthUpdates = 0;
-				LongsSketch temp = backgroundSketch;
-				backgroundSketch = updatedSketch;
-				updatedSketch = temp;		
-				dataTransferFinished.set(false);
-				mergeQueue.add(this);	
-			}		
+			}
 		}
 	}
+	
 	private static class longPair{
 		public long A;
 		public long B;
@@ -262,4 +292,13 @@ public class ParallelLongsSketch {
 			this.B = B;
 		}
 	}
+	
+	  public void sleep(int time) {
+		  	try {
+				Thread.sleep(time);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			System.out.println("sleeping for " + time + "ms");
+		  }
 }
