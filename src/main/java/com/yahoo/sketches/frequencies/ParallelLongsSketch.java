@@ -14,6 +14,7 @@ public class ParallelLongsSketch {
 	
 	private TestTypes testType;
 	private long testSize;
+	private int randomRange;
 	private long startParalleTime;
 	
 	public enum TestTypes
@@ -24,27 +25,27 @@ public class ParallelLongsSketch {
 	}
 	
 	ParallelLongsSketch(){
-		initParallelLongsSketch(7, 256, 10000000, TestTypes.NO_TEST, 0L, 10000L);
+		initParallelLongsSketch(7, 256, 10000000, TestTypes.NO_TEST, 0L, 10000);
 	}
 	
 	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize)
 	{
-		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, TestTypes.NO_TEST, 0L, 10000L);
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, TestTypes.NO_TEST, 0L, 10000);
 	}
 
 	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize){
-		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, 10000L);
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, 10000);
 	}
 	
-	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, long testRandomRange){
+	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, int testRandomRange){
 		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, testRandomRange);
 	}
 	
-	private void initParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, long testRandomRange) {
+	private void initParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, int testRandomRange) {
 		this.testType = testType;
 		this.testSize = testSize;
+		randomRange = testRandomRange;
 		localsSize = numOfLocalSketches;
-	
 		locals = new LocalSketch[localsSize];
 		for (int i = 0; i < localsSize; i++) {
 			locals[i] = new LocalSketch(maxMapSize, maxSketchsSize);
@@ -196,12 +197,7 @@ public class ParallelLongsSketch {
 
 		public Object mergingLock = new Object();
 		public LinkedBlockingQueue<longPair> stream = new LinkedBlockingQueue<longPair>();
-		
-		LocalSketch() {
-			isFake = true;
-			isDone = true;
-		}
-		
+			
 		LocalSketch(final int maxMapSize, final int maxSketchsSize){
 			LocalSketchsMaxSize = maxSketchsSize;
 			updatedSketch = new LongsSketch(maxMapSize);
@@ -228,7 +224,7 @@ public class ParallelLongsSketch {
 					//// test with random numbers
 					Random myRandom = new Random();
 					while (!shutdown.get()){
-						internalUpdate(myRandom.nextInt(1000000000), 1);
+						internalUpdate(myRandom.nextInt(randomRange), 1);
 					}	
 					break;
 					

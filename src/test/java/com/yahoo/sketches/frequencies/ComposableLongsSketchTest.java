@@ -5,6 +5,10 @@
 
 package com.yahoo.sketches.frequencies;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import org.testng.annotations.Test;
 import com.yahoo.sketches.frequencies.LongsSketch.Row;
 
@@ -14,11 +18,43 @@ public static void main(String[] args) {
 	println("Main started");
 	ComposableLongsSketchTest t1 = new ComposableLongsSketchTest();
 	//t1.basicParallelLongsSketchTest();
-	t1.ParallelLongsSketchSpeedTest();
+	//t1.ParallelLongsSketchSpeedTest();
+	
+	t1.TotalSpeedTest();
 	
 	////ComposableLongsSketchTest t = new ComposableLongsSketchTest();
 	////t.basicComposableLongsSketchTest();
 }
+
+	@Test
+	public void TotalSpeedTest() {
+		// int[] maxMapSizes = {32, 64, 128, 256};
+		// int[] numOfLocalSketches = {1, 2, 4, 8, 16, 32, 64};
+		// int[] maxSketchsSize = { 100000, 1000000, 10000000, 100000000};
+		// long numOfInputs = 10000000000L;	
+		
+		int[] maxMapSizes = {32, 256};
+		int[] numOfLocalSketches = {1, 2, 4};
+		int[] maxSketchsSizes = { 100000, 100000000};
+		long numOfInputs = 10000000L;	
+		
+		int toatlTests = maxMapSizes.length * ( 1 + numOfLocalSketches.length * maxSketchsSizes.length);
+		ParallelLongsSketch parallelSketch;
+		LongsSketch oldSketch;
+		
+		int i = 0;
+		for (int mapSize : maxMapSizes) {
+			printTest(toatlTests, ++i, mapSize);
+			
+			for (int numLocals : numOfLocalSketches) {
+				for (int localsSize : maxSketchsSizes) {
+					printTest(toatlTests, ++i, mapSize, numLocals, localsSize);
+				} 
+			}
+		}
+		
+		
+	}
 
   @Test
   public void ParallelLongsSketchSpeedTest() {
@@ -26,8 +62,8 @@ public static void main(String[] args) {
 	  	int maxMapSize = 32;
 	  	int maxSketchsSize = 1000000;
 	  	long numOfInputs = 100000000L; 
-	  	long smallRandomRange = maxMapSize + 7;
-	  	long bigRandomRange = 100000;
+	  	int smallRandomRange = maxMapSize + 7;
+	  	int bigRandomRange = 100000;
 	  	long randLong;
 	  	
 	  	System.out.println("ParallelLongsSketchSpeedTest started\n");
@@ -248,6 +284,27 @@ public static void main(String[] args) {
    */
   static void println(String s) {
     //System.err.println(s); //disable here
+  }
+  
+  static void print(String s) {
+	  System.out.println(s); 
+  }
+  
+  static void printTest(int toatlTests,int testNumber, int mapSize) {
+	  print(time() + " : Test " + testNumber + " of " + toatlTests + "- oldSketch");
+	  print("\tmapSize = " + mapSize);
+  }
+  
+  static void printTest(int toatlTests, int testNumber, int mapSize, int numLocals, int localsSize) {
+	  print(time() + " : Test " + testNumber + " of " + toatlTests + "- parallelSketch");
+	  print("\tmapSize = " + mapSize + ", numLocals = " + numLocals + ", localsSize = " + localsSize);
+  }
+  
+  static String time() {
+	    DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+	    //get current date time with Date()
+	    Date date = new Date();
+	    return dateFormat.format(date);
   }
   
   public void sleep(int time) {
