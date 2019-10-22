@@ -21,7 +21,8 @@ public class ParallelLongsSketch {
 	{
 		NO_TEST,
 		TEST_ZEROS,
-		TEST_RANDOM_RANGE
+		TEST_RANDOM_RANGE,
+		TEST_SEQUENTIAL_NUMBERS
 	}
 	
 	ParallelLongsSketch(){
@@ -227,7 +228,13 @@ public class ParallelLongsSketch {
 						internalUpdate(myRandom.nextInt(randomRange), 1);
 					}	
 					break;
-					
+				case TEST_SEQUENTIAL_NUMBERS:
+					//// test with sequential numbers
+					long i = 0;
+					while (!shutdown.get()){
+						internalUpdate(++i, 1);
+					}	
+					break;
 				default:
 					longPair pair;
 					while (!shutdown.get()){

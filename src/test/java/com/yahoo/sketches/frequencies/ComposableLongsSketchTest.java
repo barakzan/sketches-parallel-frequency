@@ -58,9 +58,9 @@ public static void main(String[] args) {
 
   @Test
   public void ParallelLongsSketchSpeedTest() {
-	  	int numOfLocalSketches = 4;
+	  	int numOfLocalSketches = 32;
 	  	int maxMapSize = 32;
-	  	int maxSketchsSize = 1000000;
+	  	int maxSketchsSize = 500000;
 	  	long numOfInputs = 100000000L; 
 	  	int smallRandomRange = maxMapSize + 7;
 	  	int bigRandomRange = 100000;
