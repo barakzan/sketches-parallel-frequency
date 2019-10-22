@@ -5,6 +5,8 @@
 
 package com.yahoo.sketches.frequencies;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -28,43 +30,85 @@ public static void main(String[] args) {
 
 	@Test
 	public void TotalSpeedTest() {
-		// int[] maxMapSizes = {32, 64, 128, 256};
-		// int[] numOfLocalSketches = {1, 2, 4, 8, 16, 32, 64};
-		// int[] maxSketchsSize = { 100000, 1000000, 10000000, 100000000};
-		// long numOfInputs = 10000000000L;	
+		long numOfInputs = 100000000L;	
 		
-		int[] maxMapSizes = {32, 256};
-		int[] numOfLocalSketches = {1, 2, 4};
-		int[] maxSketchsSizes = { 100000, 100000000};
-		long numOfInputs = 10000000L;	
+		int maxMapSize = 128;
+		int maxSketchsSize = 10000000;
+		int[] numOfLocalSketches = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 40, 50, 60, 70, 80};
 		
-		int toatlTests = maxMapSizes.length * ( 1 + numOfLocalSketches.length * maxSketchsSizes.length);
-		ParallelLongsSketch parallelSketch;
-		LongsSketch oldSketch;
-		
-		int i = 0;
-		for (int mapSize : maxMapSizes) {
-			printTest(toatlTests, ++i, mapSize);
-			
+		long[] zerosResult = new long[numOfLocalSketches.length];
+		long[] sequentialResult = new long[numOfLocalSketches.length];
+				
+		try {
+			String csvName = "results";
+			FileWriter csvWriter = new FileWriter(csvName + ".csv");
+			csvWriter.append("size:,oldSketch,");
+			System.out.print("size:,oldSketch,");
 			for (int numLocals : numOfLocalSketches) {
-				for (int localsSize : maxSketchsSizes) {
-					printTest(toatlTests, ++i, mapSize, numLocals, localsSize);
-				} 
+				csvWriter.append(numLocals + ",");
+				System.out.print(numLocals + ",");
 			}
+			csvWriter.append("\nzeros[ms]:,");
+			System.out.print("\nzeros[ms]:,");
+			
+			LongsSketch oldSketch = new LongsSketch(maxMapSize);
+			long startoldSketchTime = System.currentTimeMillis();
+			for(long n = 0; n<numOfInputs; n++) {
+				oldSketch.update(0);		
+			}
+			long oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
+			csvWriter.append(Long.toString(oldSketchTotalTime) + ",");
+			System.out.print(Long.toString(oldSketchTotalTime) + ",");
+			
+			ParallelLongsSketch parallelSketch;
+			
+			int i = 0;
+			for (int numLocals : numOfLocalSketches) {
+				parallelSketch = new ParallelLongsSketch(numLocals, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, numOfInputs);
+				zerosResult[i] = parallelSketch.finishThenDispose();
+				csvWriter.append(zerosResult[i] + ",");
+				System.out.print(zerosResult[i] + ",");
+				i++;
+			}
+			
+			csvWriter.append("\nsequ[ms]:,");
+			System.out.print("\nsequ[ms]:,");
+			
+			oldSketch = new LongsSketch(maxMapSize);
+			startoldSketchTime = System.currentTimeMillis();
+			for(long n = 0; n<numOfInputs; n++) {
+				oldSketch.update(0);		
+			}
+			oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
+			csvWriter.append(Long.toString(oldSketchTotalTime) + ",");
+			System.out.print(Long.toString(oldSketchTotalTime) + ",");
+				
+			i = 0;
+			for (int numLocals : numOfLocalSketches) {
+				parallelSketch = new ParallelLongsSketch(numLocals, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_SEQUENTIAL_NUMBERS, numOfInputs);
+				sequentialResult[i] = parallelSketch.finishThenDispose();
+				csvWriter.append(sequentialResult[i] + ",");
+				System.out.print(sequentialResult[i] + ",");
+				i++;
+			}
+			
+			csvWriter.flush();
+			csvWriter.close();
+			
+			String currentDir = System.getProperty("user.dir");
+	        System.out.println("\nCSV location: " + currentDir + "\\" + csvName + ".csv");
+			
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-		
-		
 	}
 
   @Test
   public void ParallelLongsSketchSpeedTest() {
-	  	int numOfLocalSketches = 32;
-	  	int maxMapSize = 32;
-	  	int maxSketchsSize = 500000;
-	  	long numOfInputs = 100000000L; 
-	  	int smallRandomRange = maxMapSize + 7;
-	  	int bigRandomRange = 100000;
-	  	long randLong;
+	  	int numOfLocalSketches = 16;
+	  	int maxMapSize = 256;
+	  	int maxSketchsSize = 5000000;
+	  	long numOfInputs = 1000000000L; 
 	  	
 	  	System.out.println("ParallelLongsSketchSpeedTest started\n");
 	  	
@@ -74,40 +118,37 @@ public static void main(String[] args) {
 	  	System.out.println("numOfInputs - " + numOfInputs);
 	  	System.out.println();	
 	  	
-		//test new with zeros
-		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, numOfInputs);
-		long paralleTotalTime = parallelSketch.finishThenDispose();
-		System.out.println("paralle Total Time with zeros: " + paralleTotalTime + "ms");
+	  	System.out.println("___ZEROS___");
 		
-		//test new with random range = maxMapSize + 7
-		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_RANDOM_RANGE, numOfInputs, smallRandomRange);
-		paralleTotalTime = parallelSketch.finishThenDispose();
-		System.out.println("paralle Total Time with random range of " + smallRandomRange + " numbers: " + paralleTotalTime + "ms");
-		
-		//test new with random range = 100000
-		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_RANDOM_RANGE, numOfInputs, bigRandomRange);
-		paralleTotalTime = parallelSketch.finishThenDispose();
-		System.out.println("paralle Total Time with random range of 100000 numbers: " + paralleTotalTime + "ms");
-	
-	  	// test old with smallRandomRange
+	  	// test old with zeros
 		long startoldSketchTime = System.currentTimeMillis();
 		LongsSketch oldSketch = new LongsSketch(maxMapSize);
 		for(long n = 0; n<numOfInputs; n++) {
-			randLong = (long) (Math.random() * smallRandomRange);
-			oldSketch.update(randLong);		
+			oldSketch.update(0);		
 		}
 		long oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
-		System.out.println("old Sketch with smallRandomRange Total Time: " + oldSketchTotalTime + "ms");
+		System.out.println("old Sketch Time: " + oldSketchTotalTime + "ms");
 		
-	  	// test old with bigRandomRange
+		//test new with zeros
+		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, numOfInputs);
+		long paralleTotalTime = parallelSketch.finishThenDispose();
+		System.out.println("   paralle Time: " + paralleTotalTime + "ms");
+		
+		System.out.println("\n___SEQUENTIAL_NUMBERS___");
+		
+	  	// test old with SEQUENTIAL NUMBERS
 		startoldSketchTime = System.currentTimeMillis();
 		oldSketch = new LongsSketch(maxMapSize);
 		for(long n = 0; n<numOfInputs; n++) {
-			randLong = (long) (Math.random() * bigRandomRange);
-			oldSketch.update(randLong);		
+			oldSketch.update(n);		
 		}
 		oldSketchTotalTime = System.currentTimeMillis() - startoldSketchTime;
-		System.out.println("old Sketch with bigRandomRange Total Time: " + oldSketchTotalTime + "ms");
+		System.out.println("old Sketch Time: " + oldSketchTotalTime + "ms");
+		
+		//test new with SEQUENTIAL_NUMBERS
+		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_SEQUENTIAL_NUMBERS, numOfInputs);
+		paralleTotalTime = parallelSketch.finishThenDispose();
+		System.out.println("   paralle Time: " + paralleTotalTime + "ms");
 		
 		System.out.println("\nParallelLongsSketchSpeedTest ended");
 }
