@@ -190,7 +190,8 @@ public class ParallelLongsSketch {
 	private class LocalSketch extends Thread {
 		private LongsSketch updatedSketch;
 		private LongsSketch backgroundSketch;	
-		private int LocalSketchsMaxSize;
+		private int MaxLocalSketchsSize;
+		private int CurLocalSketchsSize = 4;
 		private int currentSkecthUpdates = 0;
 		private boolean isFake = false;
 		private boolean isDone = false;
@@ -200,7 +201,7 @@ public class ParallelLongsSketch {
 		public LinkedBlockingQueue<longPair> stream = new LinkedBlockingQueue<longPair>();
 			
 		LocalSketch(final int maxMapSize, final int maxSketchsSize){
-			LocalSketchsMaxSize = maxSketchsSize;
+			MaxLocalSketchsSize = maxSketchsSize;
 			updatedSketch = new LongsSketch(maxMapSize);
 			backgroundSketch = new LongsSketch(maxMapSize);
 			setName("LocalSketch");
@@ -270,7 +271,13 @@ public class ParallelLongsSketch {
 		private void internalUpdate(long item, final long count) {
 			updatedSketch.update(item, count);
 			currentSkecthUpdates += count;
-			if(currentSkecthUpdates >= LocalSketchsMaxSize) {
+			if(currentSkecthUpdates >= CurLocalSketchsSize) {
+				if(CurLocalSketchsSize < MaxLocalSketchsSize) {
+					CurLocalSketchsSize <<= 1; // *= 2;
+					if (CurLocalSketchsSize > MaxLocalSketchsSize) {
+						CurLocalSketchsSize = MaxLocalSketchsSize;
+					}
+				}
 				merge();
 			}	
 		}
