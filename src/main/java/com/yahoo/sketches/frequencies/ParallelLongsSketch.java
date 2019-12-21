@@ -9,6 +9,7 @@ public class ParallelLongsSketch {
 	private LocalSketch[] locals;
 	private Merger merger;
 	private int localsSize;
+	private boolean optimizeMerge;
 	private AtomicBoolean shutdown = new AtomicBoolean(false);
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
@@ -26,25 +27,26 @@ public class ParallelLongsSketch {
 	}
 	
 	ParallelLongsSketch(){
-		initParallelLongsSketch(7, 256, 10000000, TestTypes.NO_TEST, 0L, 10000);
+		initParallelLongsSketch(7, 256, 10000000, TestTypes.NO_TEST, true, 0L, 10000);
 	}
 	
 	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize)
 	{
-		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, TestTypes.NO_TEST, 0L, 10000);
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, TestTypes.NO_TEST, true, 0L, 10000);
 	}
 
-	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize){
-		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, 10000);
+	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, boolean optimizeMerge, long testSize){
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, optimizeMerge, testSize, 10000);
 	}
 	
-	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, int testRandomRange){
-		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, testSize, testRandomRange);
+	ParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, boolean optimizeMerge, long testSize, int testRandomRange){
+		initParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, testType, optimizeMerge, testSize, testRandomRange);
 	}
 	
-	private void initParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, long testSize, int testRandomRange) {
+	private void initParallelLongsSketch(int numOfLocalSketches, int maxMapSize, int maxSketchsSize, TestTypes testType, boolean optimizeMerge, long testSize, int testRandomRange) {
 		this.testType = testType;
 		this.testSize = testSize;
+		this.optimizeMerge = optimizeMerge;
 		randomRange = testRandomRange;
 		localsSize = numOfLocalSketches;
 		locals = new LocalSketch[localsSize];
@@ -260,10 +262,17 @@ public class ParallelLongsSketch {
 				//System.out.println("b is not big enough " + Thread.currentThread().getId());
 				waitOnLock(mergingLock);
 			}
+			if (optimizeMerge) {
+				// copy the keys from the full map to the new empty map with zero values. 
+				backgroundSketch.setHashMap(updatedSketch.getHashMap().getMapCopyWithZeroValues());
+			}
+			
+			// swap sketches
 			LongsSketch temp = backgroundSketch;
 			backgroundSketch = updatedSketch;
+			updatedSketch = temp;
+						
 			currentSkecthUpdates = 0;
-			updatedSketch = temp;	
 			dataTransferFinished.set(false);
 			mergeQueue.add(this);
 		}

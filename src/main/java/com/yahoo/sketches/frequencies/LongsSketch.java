@@ -174,6 +174,10 @@ public class LongsSketch {
 	  return hashMap;
   }
   
+  protected void setHashMap(ReversePurgeLongHashMap newHasMap) {
+	  this.hashMap = newHasMap;
+  }
+  
   /**
    * Construct this sketch with the parameter maxMapSize and the default initialMapSize (8).
    *

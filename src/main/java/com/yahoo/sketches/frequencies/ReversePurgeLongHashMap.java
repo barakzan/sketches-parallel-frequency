@@ -317,6 +317,14 @@ class ReversePurgeLongHashMap {
     keepOnlyPositiveCounts();
     return val;
   }
+  
+  public ReversePurgeLongHashMap getMapCopyWithZeroValues() {
+	  ReversePurgeLongHashMap mapCopy = new ReversePurgeLongHashMap(1 << lgLength);
+	  mapCopy.keys = this.keys.clone();
+	  mapCopy.states = this.states.clone();
+	  mapCopy.numActive = this.numActive;
+	  return mapCopy;
+  }
 
   private void hashDelete(int deleteProbe) {
     // Looks ahead in the table to search for another item to move to this location.

@@ -64,7 +64,7 @@ public static void main(String[] args) {
 			
 			int i = 0;
 			for (int numLocals : numOfLocalSketches) {
-				parallelSketch = new ParallelLongsSketch(numLocals, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, numOfInputs);
+				parallelSketch = new ParallelLongsSketch(numLocals, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, false, numOfInputs);
 				zerosResult[i] = parallelSketch.finishThenDispose();
 				csvWriter.append(zerosResult[i] + ",");
 				System.out.print(zerosResult[i] + ",");
@@ -85,7 +85,7 @@ public static void main(String[] args) {
 				
 			i = 0;
 			for (int numLocals : numOfLocalSketches) {
-				parallelSketch = new ParallelLongsSketch(numLocals, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_SEQUENTIAL_NUMBERS, numOfInputs);
+				parallelSketch = new ParallelLongsSketch(numLocals, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_SEQUENTIAL_NUMBERS, false, numOfInputs);
 				sequentialResult[i] = parallelSketch.finishThenDispose();
 				csvWriter.append(sequentialResult[i] + ",");
 				System.out.print(sequentialResult[i] + ",");
@@ -130,7 +130,7 @@ public static void main(String[] args) {
 		System.out.println("old Sketch Time: " + oldSketchTotalTime + "ms");
 		
 		//test new with zeros
-		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, numOfInputs);
+		ParallelLongsSketch parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_ZEROS, false, numOfInputs);
 		long paralleTotalTime = parallelSketch.finishThenDispose();
 		System.out.println("   paralle Time: " + paralleTotalTime + "ms");
 		
@@ -146,7 +146,7 @@ public static void main(String[] args) {
 		System.out.println("old Sketch Time: " + oldSketchTotalTime + "ms");
 		
 		//test new with SEQUENTIAL_NUMBERS
-		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_SEQUENTIAL_NUMBERS, numOfInputs);
+		parallelSketch = new ParallelLongsSketch(numOfLocalSketches, maxMapSize, maxSketchsSize, ParallelLongsSketch.TestTypes.TEST_SEQUENTIAL_NUMBERS, false, numOfInputs);
 		paralleTotalTime = parallelSketch.finishThenDispose();
 		System.out.println("   paralle Time: " + paralleTotalTime + "ms");
 		
