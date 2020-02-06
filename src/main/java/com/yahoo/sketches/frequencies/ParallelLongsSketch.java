@@ -10,7 +10,6 @@ public class ParallelLongsSketch {
 	private Merger merger;
 	private int localsSize;
 	private boolean optimizeMerge;
-	private AtomicBoolean shutdown = new AtomicBoolean(false);
 	private LinkedBlockingQueue<LocalSketch> mergeQueue = new LinkedBlockingQueue<LocalSketch>();
 	
 	private TestTypes testType;
@@ -91,7 +90,12 @@ public class ParallelLongsSketch {
 				}
 				i = (i+1) % localsSize;
 			}
-			shutdown.set(true);
+			
+			merger.shutdown = true;
+			for (LocalSketch localSketch : locals) {
+				localSketch.shutdown = true;
+			}
+
 			mergeLocals();
 		}
 		disposeNow();
@@ -142,6 +146,8 @@ public class ParallelLongsSketch {
 	}
 	
 	private class Merger extends Thread {
+		public boolean shutdown = false;
+		
 		Merger() {
 			setName("Merger");
 		}
@@ -150,7 +156,7 @@ public class ParallelLongsSketch {
 		public void run() {
 			try {
 				LocalSketch curr;
-				while (!shutdown.get()) {
+				while (!shutdown) {
 					curr = mergeQueue.take();		
 					if (curr.isFake) {
 						break;
@@ -169,7 +175,11 @@ public class ParallelLongsSketch {
 					}
 				}
 				
-				shutdown.set(true);
+				for (LocalSketch localSketch : locals) {
+					if (localSketch != null) {
+						localSketch.shutdown = true;
+					}
+				}
 				mergeLocals();
 				for (int i = 0; i < locals.length; i++) {
 					curr = locals[i];
@@ -199,6 +209,7 @@ public class ParallelLongsSketch {
 		private boolean isDone = false;
 		private AtomicBoolean dataTransferFinished = new AtomicBoolean(true);
 
+		public boolean shutdown = false;
 		public Object mergingLock = new Object();
 		public LinkedBlockingQueue<longPair> stream = new LinkedBlockingQueue<longPair>();
 			
@@ -219,7 +230,7 @@ public class ParallelLongsSketch {
 				switch (testType) {	
 				case TEST_ZEROS:
 					//// test with zeros
-					while (!shutdown.get()){
+					while (!shutdown){
 						internalUpdate(0, 1);
 					}	
 					break;
@@ -227,20 +238,20 @@ public class ParallelLongsSketch {
 				case TEST_RANDOM_RANGE:
 					//// test with random numbers
 					Random myRandom = new Random();
-					while (!shutdown.get()){
+					while (!shutdown){
 						internalUpdate(myRandom.nextInt(randomRange), 1);
 					}	
 					break;
 				case TEST_SEQUENTIAL_NUMBERS:
 					//// test with sequential numbers
 					long i = 0;
-					while (!shutdown.get()){
+					while (!shutdown){
 						internalUpdate(++i, 1);
 					}	
 					break;
 				default:
 					longPair pair;
-					while (!shutdown.get()){
+					while (!shutdown){
 						pair = stream.take();
 						if (pair.B == -1) {
 							merge();
